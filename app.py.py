@@ -34,11 +34,9 @@ AUDIO_CODEC_MAP = {
     'm4a':  ['-vn', '-acodec', 'aac', '-b:a', '192k'],
 }
 
-# دالة تنظيف أسماء الملفات
 def sanitize_filename(name):
     return re.sub(r'[\\/*?:"<>|]', '_', name).strip()
 
-# تحليل صيغ الوقت
 def parse_time(raw):
     raw = str(raw).strip()
     if re.match(r'^\d{1,2}:\d{2}(:\d{2})?$', raw):
@@ -88,26 +86,27 @@ if st.button("🚀 البدء في معالجة وتحميل الملف"):
         st.error("يرجى إدخال رابط صالح أولاً.")
     else:
         with st.spinner("جاري الاتصال بالسيرفر وجلب بيانات الفيديو..."):
-            # جلب معلومات الفيديو الأساسية تنفذ عبر أداة النظام
-            meta_cmd = ['yt-dlp', '-J', '--flat-playlist', video_url]
+            
+            # تم التعديل هنا: استخدام sys.executable لضمان قراءة الأداة
+            meta_cmd = [sys.executable, '-m', 'yt_dlp', '-J', '--flat-playlist', video_url]
             res = run_quiet(meta_cmd)
             
             if res.returncode != 0:
-                st.error("عذراً، فشل النظام في قراءة الرابط. تحقق من صحته.")
+                st.error("عذراً، فشل النظام في قراءة الرابط. تأكد من صحته ومن وجود ملف requirements.txt.")
             else:
                 meta_data = json.loads(res.stdout)
                 title = sanitize_filename(meta_data.get('title', 'downloaded_media'))
                 
                 st.info(f"🎬 تم العثور على: {title}")
                 
-                # مسار الملف المؤقت
                 output_ext = 'mp3' if audio_only else 'mp4'
                 temp_output = os.path.join(WORKDIR, f"temp_{title}.{output_ext}")
                 final_output = os.path.join(WORKDIR, f"{title}.{output_ext}")
                 
-                # بناء أمر التحميل
                 dl_fmt = 'bestaudio/best' if audio_only else quality_format_chain(quality_selection)
-                dl_cmd = ['yt-dlp', '-f', dl_fmt, '-o', temp_output, '--no-playlist', video_url]
+                
+                # تم التعديل هنا أيضاً
+                dl_cmd = [sys.executable, '-m', 'yt_dlp', '-f', dl_fmt, '-o', temp_output, '--no-playlist', video_url]
                 
                 if not audio_only:
                     dl_cmd.extend(['--merge-output-format', 'mp4'])
@@ -115,9 +114,8 @@ if st.button("🚀 البدء في معالجة وتحميل الملف"):
                 download_res = run_quiet(dl_cmd)
                 
                 if os.path.exists(temp_output):
-                    # التحقق من إعدادات القص
                     if start_time != "0" or end_time != "0":
-                        st.text("جاري قص المقطع المحدد وتعديل الأبعاد الزرمنية...")
+                        st.text("جاري قص المقطع المحدد وتعديل الأبعاد الزمنية...")
                         st_str = parse_time(start_time)
                         
                         if end_time == "-1" or end_time == "0":
@@ -130,7 +128,6 @@ if st.button("🚀 البدء في معالجة وتحميل الملف"):
                     else:
                         os.rename(temp_output, final_output)
                     
-                    # إتاحة الملف للتحميل للمستخدم
                     if os.path.exists(final_output):
                         st.success("✨ تمت العملية بنجاح! الملف جاهز للتحميل الآن.")
                         with open(final_output, "rb") as file:
@@ -141,7 +138,6 @@ if st.button("🚀 البدء في معالجة وتحميل الملف"):
                                 mime=f"video/{output_ext}" if not audio_only else f"audio/{output_ext}"
                             )
                         
-                        # تنظيف الكاش
                         shutil.rmtree(WORKDIR, ignore_errors=True)
                         os.makedirs(WORKDIR, exist_ok=True)
                 else:
